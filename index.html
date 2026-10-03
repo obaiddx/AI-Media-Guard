@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI-Media Guard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0E13; --panel:#121821; --panel-2:#182130; --line:#26313F; --line-soft:#1B2430;
+    --text:#E7ECF2; --muted:#8393A6; --dim:#546274;
+    --real:#48D690; --fake:#F2685E; --unsure:#E8B24B; --accent:#5B8CFF;
+    --font-head: 'Space Grotesk', sans-serif; --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    background:
+      radial-gradient(900px 480px at 78% -8%, rgba(91,140,255,.10), transparent 60%),
+      radial-gradient(700px 420px at 8% 8%, rgba(72,214,144,.05), transparent 55%),
+      linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px),
+      var(--ink);
+    background-size:auto, auto, 34px 34px, 34px 34px;
+    color:var(--text); font-family:var(--font-head);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    min-height:100%; line-height:1.5;
+  }
+  a{color:inherit;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 28px;}
+
+  /* ---- header ---- */
+  header{border-bottom:1px solid var(--line); padding:20px 0; backdrop-filter:blur(6px); background:rgba(10,14,19,.72); position:sticky; top:0; z-index:20;}
+  .headbar{display:flex; align-items:center; justify-content:space-between; gap:16px;}
+  .brand{display:flex; align-items:center; gap:11px; font-weight:600; font-size:18px; letter-spacing:.2px;}
+  .brand .mark{width:27px; height:27px; flex:none; filter:drop-shadow(0 0 7px rgba(91,140,255,.35));}
+  .status-pill{
+    display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11.5px;
+    color:var(--muted); border:1px solid var(--line); padding:6px 12px 6px 10px; border-radius:100px;
+    background:var(--panel);
+  }
+  .status-pill .dot{width:6px; height:6px; border-radius:50%; background:var(--dim); flex:none;}
+  .status-pill .dot.live{background:var(--unsure); box-shadow:0 0 0 4px rgba(232,178,75,.14); animation:pulse 2.2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(232,178,75,.14)} 50%{box-shadow:0 0 0 7px rgba(232,178,75,.05)}}
+
+  /* ---- hero / console ---- */
+  .console{padding:56px 0 64px; display:grid; grid-template-columns:1.05fr 1fr; gap:56px; align-items:start;}
+  @media (max-width:880px){ .console{grid-template-columns:1fr; gap:36px;} }
+
+  .intro h1{font-size:clamp(31px,4vw,44px); font-weight:600; line-height:1.14; letter-spacing:-.4px; max-width:15ch;}
+  .intro p{color:var(--muted); margin-top:16px; max-width:46ch; font-size:15.5px;}
+  .facts{margin-top:34px; display:flex; flex-direction:column; gap:0; border-top:1px solid var(--line);}
+  .fact{display:flex; justify-content:space-between; padding:13px 0; border-bottom:1px solid var(--line); font-size:13.5px; transition:padding-left .15s;}
+  .fact:hover{padding-left:4px;}
+  .fact span:first-child{color:var(--dim); font-family:var(--font-mono);}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden;
+    box-shadow:0 24px 60px -20px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .panel-head{
+    display:flex; justify-content:space-between; align-items:center; padding:14px 18px;
+    border-bottom:1px solid var(--line); font-family:var(--font-mono); font-size:11.5px; color:var(--muted);
+    letter-spacing:.4px;
+  }
+  #panelState{padding:3px 9px; border-radius:100px; background:var(--panel-2); border:1px solid var(--line); font-size:10.5px; transition:color .2s;}
+
+  .drop{
+    margin:18px; height:230px; border:1.5px dashed var(--line); border-radius:12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px;
+    text-align:center; padding:20px; cursor:pointer; transition:border-color .18s, background .18s, transform .18s;
+    color:var(--muted); position:relative; background:var(--ink);
+  }
+  .drop::before{
+    content:''; position:absolute; inset:0; border-radius:12px; padding:1px;
+    background:linear-gradient(135deg, rgba(91,140,255,0), rgba(91,140,255,0)); pointer-events:none; transition:background .2s;
+  }
+  .drop.hover{border-color:var(--accent); background:#0E1420; border-style:solid;}
+  .drop.hover .icon-box{transform:translateY(-3px); border-color:var(--accent); color:var(--accent);}
+  .icon-box{
+    width:46px; height:46px; border-radius:10px; border:1px solid var(--line); display:flex; align-items:center;
+    justify-content:center; transition:transform .18s, border-color .18s, color .18s; background:var(--panel-2);
+  }
+  .drop svg{width:20px; height:20px;}
+  .drop b{color:var(--text); font-weight:600; font-size:14.5px;}
+  .drop small{font-family:var(--font-mono); font-size:11.5px; color:var(--dim);}
+  input[type=file]{display:none;}
+
+  .preview-stage{margin:18px; display:none;}
+  .preview-stage.on{display:block;}
+  .preview-frame{
+    border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#000;
+    aspect-ratio:16/10; display:flex; align-items:center; justify-content:center; position:relative;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+  }
+  .preview-frame img, .preview-frame video{width:100%; height:100%; object-fit:contain;}
+  .scan-line{position:absolute; left:0; right:0; height:26px; opacity:0; top:0; pointer-events:none;
+    background:linear-gradient(180deg, transparent, rgba(91,140,255,.16) 45%, rgba(91,140,255,.55) 50%, rgba(91,140,255,.16) 55%, transparent);}
+  .scan-line.on{opacity:1; animation:sweep 1.7s ease-in-out infinite;}
+  @keyframes sweep{0%{top:-26px} 100%{top:100%}}
+
+  .meta-row{display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-family:var(--font-mono); font-size:12px; color:var(--dim);}
+  .meta-row button{
+    font-family:var(--font-mono); font-size:12px; color:var(--muted); background:none; border:1px solid var(--line);
+    padding:6px 11px; border-radius:6px; cursor:pointer; transition:color .15s, border-color .15s;
+  }
+  .meta-row button:hover{color:var(--fake); border-color:var(--fake);}
+
+  .btn-primary{
+    width:calc(100% - 36px); margin:0 18px 18px; padding:13.5px; border-radius:9px; border:none;
+    background:var(--accent); color:#fff; font-family:var(--font-head); font-weight:600; font-size:14.5px;
+    cursor:pointer; transition:opacity .15s, transform .15s, box-shadow .15s; display:none;
+    box-shadow:0 8px 22px -8px rgba(91,140,255,.55);
+  }
+  .btn-primary.on{display:block;}
+  .btn-primary:disabled{opacity:.55; cursor:default; box-shadow:none;}
+  .btn-primary:not(:disabled):hover{opacity:.95; transform:translateY(-1px); box-shadow:0 10px 26px -8px rgba(91,140,255,.65);}
+  .btn-primary:not(:disabled):active{transform:translateY(0);}
+
+  /* ---- results ---- */
+  .results{margin:0 18px 18px; display:none; opacity:0; transform:translateY(6px); transition:opacity .35s ease, transform .35s ease;}
+  .results.on{display:block;}
+  .results.in{opacity:1; transform:translateY(0);}
+  .verdict{
+    display:flex; align-items:center; gap:15px; padding:17px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel-2);
+  }
+  .ring-wrap{position:relative; width:54px; height:54px; flex:none;}
+  .ring{width:54px; height:54px;}
+  .ring-icon{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;}
+  .ring-icon svg{width:19px; height:19px;}
+  .verdict-text b{font-size:16.5px; display:block; letter-spacing:-.1px;}
+  .verdict-text span{font-family:var(--font-mono); font-size:11.5px; color:var(--muted);}
+
+  .breakdown{margin-top:16px; font-family:var(--font-mono); font-size:12.5px;}
+  .bd-row{display:grid; grid-template-columns:76px 1fr 32px; align-items:center; gap:10px; padding:7px 0; color:var(--muted);}
+  .bar{height:5px; background:var(--line-soft); border-radius:3px; overflow:hidden;}
+  .bar i{display:block; height:100%; border-radius:3px; width:0; transition:width .6s cubic-bezier(.2,.8,.2,1);}
+
+  .log{
+    margin-top:15px; font-family:var(--font-mono); font-size:11.5px; color:var(--dim);
+    border-top:1px solid var(--line); padding-top:12px; max-height:110px; overflow-y:auto;
+  }
+  .log div{padding:2.5px 0; opacity:0; animation:fadein .3s ease forwards;}
+  .log div b{color:var(--accent);}
+  @keyframes fadein{to{opacity:1}}
+
+  /* ---- how it works ---- */
+  .flow{padding:10px 0 70px; border-top:1px solid var(--line);}
+  .flow h2{font-size:13.5px; font-family:var(--font-mono); color:var(--dim); font-weight:400; margin:44px 0 20px; letter-spacing:.2px;}
+  .stages{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:14px; overflow:hidden;}
+  @media (max-width:760px){ .stages{grid-template-columns:1fr 1fr;} }
+  .stage{background:var(--panel); padding:24px 22px; min-height:136px; display:flex; flex-direction:column; justify-content:space-between; transition:background .2s;}
+  .stage:hover{background:var(--panel-2);}
+  .stage em{font-style:normal; font-family:var(--font-mono); font-size:11px; color:var(--accent);}
+  .stage p{font-size:13.5px; margin-top:16px; color:var(--muted); line-height:1.5;}
+
+  footer{border-top:1px solid var(--line); padding:22px 0 40px; padding-bottom:calc(40px + env(safe-area-inset-bottom,0px));}
+  footer .wrap{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  footer p{font-family:var(--font-mono); font-size:11.5px; color:var(--dim);}
+
+  @media (prefers-reduced-motion:reduce){ .scan-line.on{animation:none;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap headbar">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 26 26" fill="none"><path d="M13 2 L23 6.5 V13 C23 19 18.5 23 13 24 C7.5 23 3 19 3 13 V6.5 Z" stroke="#5B8CFF" stroke-width="1.6"/><path d="M8.5 13 L11.5 16 L17.5 9.5" stroke="#48D690" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      AI-Media Guard
+    </div>
+    <div class="status-pill" id="serviceStatus"><span class="dot"></span> checking local model API…</div>
+  </div>
+</header>
+
+<main class="wrap console">
+  <div class="intro">
+    <h1>Is this image or video actually real?</h1>
+    <p>Upload a photo or a short video. AI-Media Guard checks it for signs of AI generation or manipulation and gives you a confidence score, not a guarantee.</p>
+    <div class="facts">
+      <div class="fact"><span>accepts</span><span>JPG · PNG · WEBP · MP4 · MOV</span></div>
+      <div class="fact"><span>max size</span><span>25 MB</span></div>
+      <div class="fact"><span>output</span><span>real / AI-generated / manipulated + confidence</span></div>
+      <div class="fact"><span>runs on</span><span>local API · uploaded files are not stored</span></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span>SCAN CONSOLE</span><span id="panelState">idle</span></div>
+
+    <label class="drop" id="drop" for="fileInput">
+      <div class="icon-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4L7 9M12 4l5 5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round"/></svg></div>
+      <b>Drop an image or video, or click to browse</b>
+      <small>nothing uploads until you press Analyze</small>
+    </label>
+    <input type="file" id="fileInput" accept="image/*,video/*">
+
+    <div class="preview-stage" id="previewStage">
+      <div class="preview-frame" id="previewFrame">
+        <div class="scan-line" id="scanLine"></div>
+      </div>
+      <div class="meta-row">
+        <span id="fileMeta">—</span>
+        <button id="clearBtn">Remove</button>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="analyzeBtn">Analyze media</button>
+
+    <div class="results" id="results">
+      <div class="verdict">
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 54 54" id="ring">
+            <circle cx="27" cy="27" r="23" fill="none" stroke="#26313F" stroke-width="4"/>
+            <circle cx="27" cy="27" r="23" fill="none" id="ringFg" stroke="#48D690" stroke-width="4" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="144.5" transform="rotate(-90 27 27)"/>
+          </svg>
+          <div class="ring-icon" id="ringIcon"></div>
+        </div>
+        <div class="verdict-text">
+          <b id="verdictLabel">—</b>
+          <span id="verdictScore">—</span>
+        </div>
+      </div>
+      <div class="breakdown" id="breakdown"></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</main>
+
+<section class="wrap flow">
+  <h2>// how a scan runs</h2>
+  <div class="stages">
+    <div class="stage"><em>01 — intake</em><p>File type is detected and, for video, split into sampled frames.</p></div>
+    <div class="stage"><em>02 — analysis</em><p>The trained image model scores the image or sampled video frames.</p></div>
+    <div class="stage"><em>03 — aggregation</em><p>Per-frame scores combine into one verdict with a confidence value.</p></div>
+    <div class="stage"><em>04 — report</em><p>Result, confidence, and a short breakdown are shown to the user.</p></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>AI-Media Guard — authenticity is a probability, not a certainty.</p>
+    <p id="buildTag">local API integration</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const drop = document.getElementById('drop');
+  const fileInput = document.getElementById('fileInput');
+  const previewStage = document.getElementById('previewStage');
+  const previewFrame = document.getElementById('previewFrame');
+  const scanLine = document.getElementById('scanLine');
+  const fileMeta = document.getElementById('fileMeta');
+  const clearBtn = document.getElementById('clearBtn');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const results = document.getElementById('results');
+  const panelState = document.getElementById('panelState');
+  const verdictLabel = document.getElementById('verdictLabel');
+  const verdictScore = document.getElementById('verdictScore');
+  const ringFg = document.getElementById('ringFg');
+  const ringIcon = document.getElementById('ringIcon');
+  const breakdown = document.getElementById('breakdown');
+  const log = document.getElementById('log');
+  const serviceStatus = document.getElementById('serviceStatus');
+
+  const ICONS = {
+    real: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6"/></svg>',
+    ai_generated: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    manipulated: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg>'
+  };
+
+  let currentFile = null, mediaEl = null;
+
+  fetch('/api/health').then(r => r.json()).then(s => {
+    const dot = serviceStatus.querySelector('.dot');
+    if (s.model_exists) {
+      dot.classList.add('live'); dot.style.background = 'var(--real)';
+      serviceStatus.lastChild.textContent = ' local model API ready';
+    } else {
+      serviceStatus.lastChild.textContent = ' API connected · model not trained';
+    }
+  }).catch(() => { serviceStatus.lastChild.textContent = ' start the local API to analyze media'; });
+
+  function bytesToSize(b){
+    if(b < 1024*1024) return (b/1024).toFixed(0)+' KB';
+    return (b/(1024*1024)).toFixed(1)+' MB';
+  }
+
+  function loadFile(file){
+    if(!file) return;
+    currentFile = file;
+    previewFrame.querySelectorAll('img,video').forEach(el=>el.remove());
+    const url = URL.createObjectURL(file);
+    if(file.type.startsWith('video')){
+      mediaEl = document.createElement('video');
+      mediaEl.src = url; mediaEl.controls = true; mediaEl.muted = true;
+    } else {
+      mediaEl = document.createElement('img');
+      mediaEl.src = url;
+    }
+    previewFrame.prepend(mediaEl);
+    fileMeta.textContent = file.name + ' · ' + bytesToSize(file.size);
+    previewStage.classList.add('on');
+    drop.style.display = 'none';
+    analyzeBtn.classList.add('on');
+    analyzeBtn.disabled = false;
+    analyzeBtn.textContent = 'Analyze media';
+    results.classList.remove('on','in');
+    panelState.textContent = 'ready';
+    panelState.style.color = '';
+  }
+
+  fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('hover'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('hover'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('hover');
+    if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    currentFile = null;
+    previewStage.classList.remove('on');
+    drop.style.display = 'flex';
+    analyzeBtn.classList.remove('on');
+    results.classList.remove('on','in');
+    fileInput.value = '';
+    panelState.textContent = 'idle';
+    panelState.style.color = '';
+  });
+
+  async function analyzeMedia(file){
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch('/api/analyze', {method:'POST', body:form});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || 'Analysis failed.');
+    return data;
+  }
+
+  analyzeBtn.addEventListener('click', async () => {
+    if(!currentFile) return;
+    analyzeBtn.disabled = true;
+    analyzeBtn.textContent = 'Analyzing…';
+    panelState.textContent = 'scanning';
+    scanLine.classList.add('on');
+    log.innerHTML = '';
+    results.classList.remove('on','in');
+
+    const steps = ['sending file to local API', 'sampling video frames', 'scoring with trained model'];
+    steps.forEach((s,i) => {
+      const d = document.createElement('div');
+      d.innerHTML = '<b>[' + String(i+1).padStart(2,'0') + ']</b> ' + s;
+      log.appendChild(d);
+    });
+    try {
+      const r = await analyzeMedia(currentFile);
+      scanLine.classList.remove('on');
+      log.innerHTML += '<div><b>[04]</b> analysis complete · ' + r.frames_analyzed + ' frame(s)</div>';
+      r.color = r.verdict === 'real' ? '#48D690' : '#F2685E';
+      const pct = Math.round(r.confidence*100);
+      const circumference = 144.5;
+      ringFg.setAttribute('stroke', r.color);
+      ringFg.style.transition = 'stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)';
+      ringFg.setAttribute('stroke-dashoffset', circumference - (circumference*r.confidence));
+      ringIcon.innerHTML = ICONS[r.verdict];
+      ringIcon.style.color = r.color;
+      verdictLabel.textContent = r.label;
+      verdictLabel.style.color = r.color;
+      verdictScore.textContent = pct + '% confidence · ' + r.frames_analyzed + ' frame(s) analyzed';
+
+      breakdown.innerHTML = r.breakdown.map(b => `
+        <div class="bd-row">
+          <span>${b.label}</span>
+          <div class="bar"><i style="width:0%; background:${r.color}" data-w="${Math.round(b.score*100)}"></i></div>
+          <span>${Math.round(b.score*100)}%</span>
+        </div>`).join('');
+
+      results.classList.add('on');
+      requestAnimationFrame(() => {
+        results.classList.add('in');
+        breakdown.querySelectorAll('.bar i').forEach(el => { el.style.width = el.dataset.w + '%'; });
+      });
+      panelState.textContent = 'complete';
+      panelState.style.color = r.color;
+    } catch (error) {
+      scanLine.classList.remove('on');
+      const d = document.createElement('div');
+      d.innerHTML = '<b>[error]</b> ' + error.message;
+      log.appendChild(d);
+      panelState.textContent = 'error';
+      panelState.style.color = '#F2685E';
+    } finally {
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = 'Re-analyze';
+    }
+  });
+})();
+</script>
+</body>
+</html>
